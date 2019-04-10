@@ -50,7 +50,9 @@ def main():
     #op_files = glob.glob("/home/ana/Measurements/*/*/*json")
     op_files = glob.glob(args.path + "/*json")
     if not op_files:
-        sys.exit("No suitable files found for analysis, please ensure your files are in json format and end with *json")
+        sys.exit(
+            "No suitable files found for analysis, please ensure your files are in json format and end with *json"
+        )
 
     all_csv_data = pd.DataFrame()
     for f in op_files:
@@ -66,11 +68,7 @@ def main():
             tgen_dfObj = pd.DataFrame.from_dict(
                 tgen_data,
                 orient="index",
-                columns=[
-                    "endpoint_local", "error_code", "endpoint_remote",
-                    "is_error", "total_bytes_read", "transfer_id",
-                    "unix_ts_end", "unix_ts_start", "elapsed_seconds"
-                ])
+            )
             tgen_dfObj["endpoint_local"] = tgen_dfObj["endpoint_local"].apply(
                 lambda x: x[20:])
             tgen_dfObj["total_seconds"] = tgen_dfObj[
@@ -79,9 +77,6 @@ def main():
                 tgen_dfObj["elapsed_seconds"])
             tgen_dfObj["state_failed"] = tgen_dfObj["elapsed_seconds"].apply(
                 lambda x: get_last(x))
-
-            tgen_dfObj = tgen_dfObj.drop(
-                columns=["unix_ts_start", "unix_ts_end", "elapsed_seconds"])
 
             tor_stream_dfObj = pd.DataFrame.from_dict(
                 tor_stream_data, orient="index")
@@ -92,9 +87,6 @@ def main():
             tor_circuit_dfObj = pd.DataFrame.from_dict(
                 tor_circuit_data, orient="index")
 
-            tor_stream_dfObj = tor_stream_dfObj.drop(
-                columns=["unix_ts_start", "unix_ts_end", "elapsed_seconds"])
-            #tor_circuit_dfObj = tor_circuit_dfObj.drop(columns=["unix_ts_start", "unix_ts_end", "elapsed_seconds"])
             try:
                 tor_circuit_dfObj["circuit_id"] = tor_circuit_dfObj[
                     "circuit_id"].astype(str)
@@ -116,22 +108,33 @@ def main():
 
             unified_circuit_stream_data = unified_circuit_stream_data[(
                 unified_circuit_stream_data.error_code != 'NONE')]
-            unified_circuit_stream_data = unified_circuit_stream_data.dropna(
-                axis=1, how='all')
+
             all_csv_data = all_csv_data.append(unified_circuit_stream_data)
         else:
-            sys.exit ("Don't know how to deal with multiple hostnames yet")
-    all_csv_data["failure_reason_local"] = all_csv_data[
-        "failure_reason_local_y"]
-    all_csv_data["failure_reason_remote"] = all_csv_data[
-        "failure_reason_remote_y"]
-    header = [
-        'transfer_id', 'is_error', 'error_code', 'state_failed',
-        'total_seconds', 'endpoint_remote', 'total_bytes_read', 'circuit_id',
-        'buildtime_seconds', 'failure_reason_local', 'failure_reason_remote',
-        'path', 'stream_id', 'source', 'target'
-    ]
-    all_csv_data.to_csv("errors.csv", index=False, columns=header)
+            sys.exit("Don't know how to deal with multiple hostnames yet")
+
+    if not all_csv_data.empty:
+        try:
+            all_csv_data["failure_reason_local"] = all_csv_data[
+                "failure_reason_local_y"]
+        except:
+            #if there are no failures at all in the circuit data then the csv column will simply be left empty
+            pass
+        try:
+            all_csv_data["failure_reason_remote"] = all_csv_data[
+                "failure_reason_remote_y"]
+        except:
+            #if there are no failures at all in the circuit data then the csv column will simply be left empty
+            pass
+        header = [
+            'transfer_id', 'is_error', 'error_code', 'state_failed',
+            'total_seconds', 'endpoint_remote', 'total_bytes_read',
+            'circuit_id', 'buildtime_seconds', 'failure_reason_local',
+            'failure_reason_remote', 'path', 'stream_id', 'source', 'target'
+        ]
+        all_csv_data.to_csv("errors.csv", index=False, columns=header)
+    else:
+        sys.exit("Could not find any error data in the json files")
 
 
 if __name__ == "__main__":
