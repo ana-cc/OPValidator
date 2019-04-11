@@ -55,6 +55,7 @@ def main():
         )
 
     all_csv_data = pd.DataFrame()
+    all_errors = 0
     for f in op_files:
         m = OPMeasurement(f)
         hostnames = m.get_hostnames()
@@ -78,6 +79,9 @@ def main():
             tgen_dfObj["state_failed"] = tgen_dfObj["elapsed_seconds"].apply(
                 lambda x: get_last(x))
 
+            new_df = tgen_dfObj[(tgen_dfObj.error_code != 'NONE')]
+            all_errors +=len(new_df)
+
             tor_stream_dfObj = pd.DataFrame.from_dict(
                 tor_stream_data, orient="index")
             tor_stream_dfObj["source"] = tor_stream_dfObj["source"].astype(str)
@@ -96,13 +100,13 @@ def main():
             unified_circuit_stream_data = pd.merge(
                 tor_circuit_dfObj,
                 tor_stream_dfObj,
-                how="inner",
+                how="outer",
                 on="circuit_id")
 
             unified_circuit_stream_data = pd.merge(
                 tgen_dfObj,
                 unified_circuit_stream_data,
-                how="inner",
+                how="left",
                 right_on="source",
                 left_on="endpoint_local")
 
@@ -129,9 +133,15 @@ def main():
         header = [
             'transfer_id', 'is_error', 'error_code', 'state_failed',
             'total_seconds', 'endpoint_remote', 'total_bytes_read',
-            'circuit_id', 'buildtime_seconds', 'failure_reason_local',
-            'failure_reason_remote', 'path', 'stream_id', 'source', 'target'
+            'circuit_id', 'stream_id','buildtime_seconds', 'failure_reason_local',
+            'failure_reason_remote', 'path',  'source', 'target'
         ]
+        if not all_csv_data.failure_reason_local_x.empty:
+           header.extend(['failure_reason_local_x'])
+
+        if not all_csv_data.failure_reason_remote_x.empty:
+           header.extend(['failure_reason_remote_x'])
+        print("all errors: {0}".format(all_errors))
         all_csv_data.to_csv("errors.csv", index=False, columns=header)
     else:
         sys.exit("Could not find any error data in the json files")
